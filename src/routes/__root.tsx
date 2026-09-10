@@ -9,6 +9,7 @@ import { makeQueryClient } from "@/lib/query";
 import appCss from "../styles.css?url";
 
 import { APP_NAME } from "@/lib/platform";
+import { clearStaleReloadFlag, maybeAutoReloadStale } from "@/lib/chunk-reload";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   try {
@@ -34,6 +35,7 @@ export const Route = createRootRoute({
     "X-DNS-Prefetch-Control": "off",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Frame-Options": "SAMEORIGIN",
+    "Cache-Control": "no-store, no-cache, must-revalidate",
   }),
   head: () => ({
     meta: [
@@ -61,15 +63,10 @@ export const Route = createRootRoute({
 function RootComponent() {
   const [client] = useState(() => makeQueryClient());
   useEffect(() => {
+    clearStaleReloadFlag();
     const onPreloadError = (event: Event) => {
       event.preventDefault();
-      try {
-        if (sessionStorage.getItem("jmg-chunk-reload") === "1") return;
-        sessionStorage.setItem("jmg-chunk-reload", "1");
-      } catch {
-        /* ignore */
-      }
-      window.location.reload();
+      maybeAutoReloadStale();
     };
     window.addEventListener("vite:preloadError", onPreloadError);
     return () => window.removeEventListener("vite:preloadError", onPreloadError);

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -29,6 +29,7 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Kpi } from "@/components/kpi";
 import { SheetCanvas } from "@/components/optimizer/sheet-canvas";
+import { SheetThumb } from "@/components/optimizer/sheet-thumb";
 import {
   type CutPartInput,
   type StockSheetInput,
@@ -37,7 +38,9 @@ import {
   STANDARD_SHEET_PRESETS,
   DEFAULT_OPTIMIZER_SETTINGS,
 } from "@/lib/optimizer/types";
-import { runOptimizationTournament } from "@/lib/optimizer/tournament";
+import { runThicknessWiseOptimization } from "@/lib/optimizer/tournament";
+import { parseCutlistCsv, JINNY_CSV_TEMPLATE } from "@/lib/optimizer/csv";
+import { groupBoardsByMaterial } from "@/lib/optimizer/patterns";
 import { listProjects, getProject } from "@/lib/server";
 import { ManualBuilder } from "@/components/optimizer/manual-builder";
 
@@ -70,12 +73,15 @@ function OptimizerView() {
   const [settings, setSettings] = useState<OptimizerSettings>(DEFAULT_OPTIMIZER_SETTINGS);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
+  const [boardKey, setBoardKey] = useState("");
+  const [patternId, setPatternId] = useState("");
   const [highlightPartId, setHighlightPartId] = useState<string | null>(null);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [showManualBuilder, setShowManualBuilder] = useState(false);
   const [pasteModalOpen, setPasteModalOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const csvFileRef = useRef<HTMLInputElement>(null);
 
   // Projects list for 1-click import
   const projectsQ = useQuery({ queryKey: ["projects"], queryFn: () => listProjects() });
@@ -97,11 +103,15 @@ function OptimizerView() {
     }
 
     try {
-      const optResult = runOptimizationTournament(parts, stockSheet, settings);
+      const optResult = runThicknessWiseOptimization(parts, stockSheet, settings);
       setResult(optResult);
       setActiveSheetIndex(0);
+      setBoardKey("");
+      setPatternId("");
+      const boards = groupBoardsByMaterial(optResult);
+      const unique = boards.reduce((s, b) => s + b.uniquePatterns, 0);
       toast.success(
-        `Optimized! Used ${optResult.totalSheets} sheet(s) with ${optResult.overallEfficiencyPct}% yield.`,
+        `Optimized! ${optResult.totalSheets} sheet(s) · ${unique} unique pattern(s) · ${optResult.overallEfficiencyPct}% yield.`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Optimization failed.");
@@ -130,6 +140,7 @@ function OptimizerView() {
           grain: isWoodgrain ? "length" : "none",
           canRotate: !isWoodgrain,
           unit: p.unit,
+          thickness: Number(p.thickness_mm) || undefined,
         };
       });
 
@@ -153,6 +164,7 @@ function OptimizerView() {
       grain: "none",
       canRotate: true,
       unit: "Custom",
+      thickness: stockSheet.thickness,
     };
     setParts([...parts, newPart]);
   };
@@ -176,52 +188,57 @@ function OptimizerView() {
     setParts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  // Handle Cutlist Paste
+  const applyCsvParts = (text: string, replace = true) => {
+    const parsed = parseCutlistCsv(text);
+    if (!parsed.length) {
+      toast.error("Could not parse CSV. Use: SR. NO., Part Name, Length, Width, Qty, Thick, Material, Grain, Edge-1…4, Pro. Name, UNIT CODE, Clint name");
+      return false;
+    }
+    setParts((prev) => (replace ? parsed : [...prev, ...parsed]));
+    setResult(null);
+    const thicks = [...new Set(parsed.map((p) => p.thickness).filter(Boolean))];
+    toast.success(
+      `Imported ${parsed.length} parts${thicks.length ? ` · thickness ${thicks.join(" / ")} mm` : ""}.`,
+    );
+    return true;
+  };
+
   const handlePasteSubmit = () => {
     if (!pasteText.trim()) return;
-    const lines = pasteText.trim().split("\n");
-    const parsed: CutPartInput[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line || line.startsWith("#") || line.toLowerCase().startsWith("length")) continue;
-
-      const cols = line.split(/[,\t]+/).map((c) => c.trim());
-      if (cols.length >= 2) {
-        const l = Number(cols[0]);
-        const w = Number(cols[1]);
-        const qty = cols.length >= 3 ? Number(cols[2]) || 1 : 1;
-        const name = cols.length >= 4 ? cols[3] : `Part ${parsed.length + 1}`;
-        const grainVal = cols.length >= 5 ? cols[4].toLowerCase() : "none";
-        const grain = grainVal === "length" || grainVal === "width" ? grainVal : "none";
-
-        if (l > 0 && w > 0) {
-          parsed.push({
-            id: `pasted_${Date.now()}_${i}`,
-            name,
-            length: l,
-            width: w,
-            qty,
-            material: stockSheet.material,
-            grain,
-            canRotate: grain === "none",
-          });
-        }
-      }
-    }
-
-    if (parsed.length > 0) {
-      setParts((prev) => [...prev, ...parsed]);
-      toast.success(`Imported ${parsed.length} parts!`);
+    if (applyCsvParts(pasteText, false)) {
       setPasteModalOpen(false);
       setPasteText("");
-    } else {
-      toast.error("Could not parse cutlist. Use format: Length, Width, Qty, Name");
     }
   };
 
+  const handleCsvFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      applyCsvParts(text, true);
+    };
+    reader.onerror = () => toast.error("Could not read CSV file.");
+    reader.readAsText(file);
+  };
+
+  const handleDownloadTemplate = () => {
+    const blob = new Blob([JINNY_CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "jinny-cutlist.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const boardGroups = useMemo(() => (result ? groupBoardsByMaterial(result) : []), [result]);
+  const activeBoard = boardGroups.find((g) => g.key === boardKey) ?? boardGroups[0] ?? null;
+  const activePattern =
+    activeBoard?.patterns.find((p) => p.id === patternId) ?? activeBoard?.patterns[0] ?? null;
+
   // Active Sheet Layout
-  const activeSheet = result?.sheets[activeSheetIndex] || null;
+  const activeSheet = activePattern?.layout ?? result?.sheets[activeSheetIndex] ?? null;
 
   // Print Cutting Plan
   const handlePrint = () => {
@@ -289,6 +306,29 @@ function OptimizerView() {
           >
             <FileSpreadsheet className="size-4" />
             Paste CSV
+          </Button>
+          <input
+            ref={csvFileRef}
+            type="file"
+            accept=".csv,.txt,.tsv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              handleCsvFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => csvFileRef.current?.click()}
+            title="Upload Jinny cut-list CSV"
+          >
+            <Upload className="size-4" />
+            Upload CSV
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleDownloadTemplate} title="Download CSV template">
+            <Download className="size-4" />
+            CSV template
           </Button>
 
           <Button
@@ -508,53 +548,64 @@ function OptimizerView() {
 
       {/* Main Content Area: Left/Top is Visualizer (if results), Right/Bottom is Cut-List */}
       {result && activeSheet ? (
-        <div className="space-y-4">
-          {/* Sheet Navigator */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={activeSheetIndex === 0}
-                onClick={() => setActiveSheetIndex((i) => Math.max(0, i - 1))}
-              >
-                <ChevronLeft className="size-4" />
-                Previous
-              </Button>
+        <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
+          <Card className="space-y-2 p-3">
+            <p className="px-1 text-[10px] font-bold uppercase tracking-wide text-muted">Boards</p>
+            {boardGroups.map((g) => {
+              const on = (activeBoard?.key || "") === g.key;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => {
+                    setBoardKey(g.key);
+                    setPatternId(g.patterns[0]?.id || "");
+                    if (g.patterns[0]) setActiveSheetIndex(g.patterns[0].layout.sheetIndex);
+                  }}
+                  className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
+                    on ? "border-primary bg-surface-low" : "border-outline hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-bold">{g.label}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-muted">{g.thickness} mm</span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted">
+                    ×{g.sheetCount} sheets · {g.uniquePatterns} pattern{g.uniquePatterns === 1 ? "" : "s"} · {g.partsPlaced} parts
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-container">
+                      <div className="h-full bg-ok" style={{ width: `${g.yieldPct}%` }} />
+                    </div>
+                    <span className="font-mono text-[10px] font-semibold">{g.yieldPct}%</span>
+                    <span className="font-mono text-[10px] text-muted">{g.wastePct}%</span>
+                  </div>
+                </button>
+              );
+            })}
+          </Card>
 
-              <div className="flex max-w-[50vw] overflow-x-auto items-center gap-1 scrollbar-hide py-1">
-                {result.sheets.map((s, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveSheetIndex(idx)}
-                    className={`h-8 rounded px-3 text-xs font-medium whitespace-nowrap transition-all ${
-                      idx === activeSheetIndex
-                        ? "bg-primary text-on-primary shadow-sm"
-                        : "bg-surface-container text-foreground hover:bg-surface-low"
-                    }`}
-                  >
-                    Sheet {idx + 1}
-                  </button>
-                ))}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={activeSheetIndex === result.sheets.length - 1}
-                onClick={() =>
-                  setActiveSheetIndex((i) => Math.min(result.sheets.length - 1, i + 1))
-                }
-              >
-                Next
-                <ChevronRight className="size-4" />
-              </Button>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {(activeBoard?.patterns ?? []).map((p, i) => (
+                <SheetThumb
+                  key={p.id}
+                  layout={p.layout}
+                  copies={p.copies}
+                  index={i + 1}
+                  selected={activePattern?.id === p.id}
+                  onClick={() => {
+                    setPatternId(p.id);
+                    setActiveSheetIndex(p.layout.sheetIndex);
+                  }}
+                />
+              ))}
             </div>
-
-            <div className="text-xs text-muted">
-              Showing Sheet {activeSheetIndex + 1} of {result.totalSheets}
-            </div>
-          </div>
+            <p className="text-[11px] text-muted">
+              {activeBoard
+                ? `${activeBoard.sheetCount} boards · ${activeBoard.uniquePatterns} unique pattern${activeBoard.uniquePatterns === 1 ? "" : "s"} (identical nests grouped as ×N)`
+                : null}
+            </p>
 
           <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
             {/* Sheet Canvas Layout */}
@@ -569,7 +620,9 @@ function OptimizerView() {
             {/* Parts on this Sheet Table */}
             <Card className="p-4 flex flex-col max-h-[682px]">
               <h3 className="mb-3 text-sm font-semibold">
-                Parts on Sheet #{activeSheetIndex + 1} ({activeSheet.placedParts.length})
+                Parts on this pattern
+                {activePattern && activePattern.copies > 1 ? ` · ×${activePattern.copies} boards` : ""}{" "}
+                ({activeSheet.placedParts.length})
               </h3>
               <div className="overflow-y-auto flex-1 border rounded-md border-outline">
                 <table className="w-full text-left text-xs">
@@ -615,6 +668,7 @@ function OptimizerView() {
                 </table>
               </div>
             </Card>
+          </div>
           </div>
         </div>
       ) : null}
@@ -663,6 +717,7 @@ function OptimizerView() {
                 <th className="pb-2 font-medium">Length (mm)</th>
                 <th className="pb-2 font-medium">Width (mm)</th>
                 <th className="pb-2 font-medium">Qty</th>
+                <th className="pb-2 font-medium">Thick</th>
                 <th className="pb-2 font-medium">Material</th>
                 <th className="pb-2 font-medium">Grain / Rotation</th>
                 <th className="pb-2 font-medium text-right">Actions</th>
@@ -671,8 +726,8 @@ function OptimizerView() {
             <tbody className="divide-y divide-outline">
               {parts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted">
-                    No panels in cut-list. Click "Add Panel", "Paste CSV", or select a Project above!
+                  <td colSpan={10} className="py-8 text-center text-muted">
+                    No panels in cut-list. Click "Add Panel", "Upload CSV", "Paste CSV", or select a Project above!
                   </td>
                 </tr>
               ) : (
@@ -731,6 +786,20 @@ function OptimizerView() {
                     </td>
                     <td className="py-2">
                       <input
+                        type="number"
+                        min="0"
+                        value={p.thickness || ""}
+                        placeholder="mm"
+                        onChange={(e) =>
+                          handleUpdatePart(p.id, {
+                            thickness: Number(e.target.value) || undefined,
+                          })
+                        }
+                        className="h-8 w-16 rounded border border-outline bg-transparent px-2 font-mono text-xs"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <input
                         type="text"
                         value={p.material}
                         onChange={(e) => handleUpdatePart(p.id, { material: e.target.value })}
@@ -774,12 +843,12 @@ function OptimizerView() {
       {pasteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/60 p-4">
           <Card className="w-full max-w-lg space-y-4 p-6 shadow-2xl">
-            <h3 className="text-base font-bold">Paste Cut-List (Excel / CSV)</h3>
+            <h3 className="text-base font-bold">Paste / import Jinny cut-list CSV</h3>
             <p className="text-xs text-muted leading-relaxed">
-              Paste columns separated by commas or tabs. Format:
+              Header format:
               <br />
-              <code className="font-mono text-foreground font-bold">
-                Length, Width, Qty, Part Name, Grain (none/length/width)
+              <code className="font-mono text-[11px] text-foreground font-bold">
+                SR. NO., Part Name, Length, Width, Qty, Thick, Material, Grain, Edge-1, Edge-2, Edge-3, Edge-4, Pro. Name, UNIT CODE, Clint name
               </code>
             </p>
 
@@ -787,7 +856,9 @@ function OptimizerView() {
               rows={8}
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              placeholder={`820, 560, 2, Side Panel, length\n864, 560, 2, Bottom Shelf, none\n440, 200, 4, Drawer Front, length`}
+              placeholder={`SR. NO.,Part Name,Length,Width,Qty,Thick,Material,Grain,Edge-1,Edge-2,Edge-3,Edge-4,Pro. Name,UNIT CODE,Clint name
+1,TOP,564,558,1,17,BSL 56163SF,0,0.8MM,0.8MM,0.8MM,0.8MM,ELE-A TALL UNIT-1,A,SAMPLE CLIENT
+6,BACK PANEL,2274,584,1,9,BSL 56163SF,0,NO EB,NO EB,NO EB,NO EB,ELE-A TALL UNIT-1,A,SAMPLE CLIENT`}
               className="w-full rounded-md border border-outline bg-background p-3 font-mono text-xs leading-normal outline-none focus:border-primary"
             />
 

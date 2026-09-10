@@ -1147,3 +1147,287 @@ html, body {
   body:has(.cl-wrap) .bm-add { display: none !important; }
   body:has(.cl-wrap) .cl-in::placeholder { color: transparent !important; }
 }
+
+.hw-frame {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: #111;
+  overflow: auto;
+}
+.hw-top {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  border-bottom: 1.5px solid #111;
+  min-height: 88px;
+}
+.hw-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-right: 1.5px solid #111;
+}
+.hw-logo .hw-in {
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  height: auto;
+  min-height: 36px;
+}
+.hw-meta { display: flex; flex-direction: column; }
+.hw-title {
+  background: #fff;
+  color: #111;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #111;
+}
+.hw-title .hw-in {
+  color: #111;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  height: 26px;
+}
+.hw-kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  border-top: 1px solid #111;
+  min-height: 22px;
+}
+.hw-kv > span {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  border-right: 1px solid #111;
+  background: #fff;
+}
+.hw-block { border-bottom: 1.5px solid #111; }
+.hw-bar,
+.hw-unit {
+  display: grid;
+  min-height: 24px;
+  background: #fff;
+}
+.hw-bar { grid-template-columns: minmax(0, 1.6fr) 52px 52px 52px minmax(90px, 0.7fr); }
+.hw-unit { grid-template-columns: 48px minmax(0, 1.4fr) 52px minmax(0, 0.8fr) 22px; }
+.hw-subno {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  border-bottom: 1px solid #111;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.hw-subno .hw-in { border: 0; font-weight: 800; height: 24px; }
+.hw-bar > span,
+.hw-unit > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 10px;
+  border-left: 1px solid #111;
+  border-bottom: 1px solid #111;
+}
+.hw-bar .hw-in,
+.hw-unit .hw-in {
+  height: 24px;
+  border-left: 1px solid #111;
+  border-bottom: 1px solid #111;
+  background: transparent;
+  font-weight: 800;
+}
+.hw-brand .hw-in { letter-spacing: 0.08em; }
+.hw-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.hw-table th,
+.hw-table td {
+  border: 1px solid #111;
+  padding: 0;
+  height: 22px;
+}
+.hw-table thead th {
+  color: #111;
+  font-size: 10px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  text-align: center;
+  background: #fff;
+}
+.hw-in {
+  width: 100%;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 0 4px;
+  outline: none;
+  min-width: 0;
+}
+.hw-c { text-align: center; }
+.hw-b { font-weight: 800; }
+.hw-red { color: #c1121f; }
+.hw-desc { display: flex; align-items: center; min-width: 0; }
+.hw-x {
+  border: 0;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  font-size: 14px;
+}
+.hw-rowbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px;
+  background: #fff;
+}
+.hw-rowbar button {
+  border: 1px solid #111;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+@media print {
+  body:has(.cl-wrap) .hw-x,
+  body:has(.cl-wrap) .hw-rowbar { display: none !important; }
+}
+
+/* ── Sheet aesthetic (WO / Cutlist / Material / Hardware) ── */
+.wo-frame {
+  border-color: #166534;
+  box-shadow: 0 12px 36px rgba(22, 101, 52, 0.12);
+}
+.wo-logo {
+  background: #f0fdf4;
+  color: #14532d;
+}
+.wo-title {
+  background: #166534 !important;
+  color: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.wo-lab {
+  background: #dcfce7;
+  color: #14532d;
+}
+.wo-cols th {
+  background: #14532d !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.wo-unit td { background: #f7fef9; }
+.wo-dept-name { background: #ecfdf3; }
+
+.cl-frame {
+  border-color: #1e3a5f;
+  box-shadow: 0 12px 36px rgba(30, 58, 95, 0.12);
+}
+.cl-logo-app { background: #fff1f2; }
+.cl-logo-factory { background: #f8fafc; }
+.cl-title {
+  background: #1e3a5f;
+  color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.cl-title .cl-in { color: #fff; font-weight: 800; }
+.cl-hlab {
+  background: #e8eef6;
+  color: #1e3a5f;
+}
+.cl-table thead th {
+  background: #1e3a5f !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.cl-unit td { background: #e8eef6; }
+
+.bm-frame { border-color: #0f766e; }
+.bm-logo-l { background: #fff1f2; }
+.bm-logo-r { background: #f0fdfa; }
+.bm-title {
+  background: #0f766e;
+  color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.bm-title .bm-in { color: #fff; }
+.bm-meta > span,
+.bm-prep > span {
+  background: #ccfbf1;
+  color: #115e59;
+}
+.bm-table thead th {
+  background: #134e4a;
+  color: #fff;
+  height: 28px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.bm-sign th {
+  background: #0f766e;
+  color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.bm-sign-lab { background: #ccfbf1; }
+.bm-g-a td { background: #fef3c7; }
+.bm-g-b td { background: #e0f2fe; }
+.bm-g-c td { background: #dcfce7; }
+.bm-g-x td { background: #f3f4f6; }
+.bm-item:nth-child(even) td { background: #f8fafc; }
+
+.hw-frame { border-color: #1e3a5f; }
+.hw-logo { background: #f8fafc; }
+.hw-title {
+  background: #1e3a5f !important;
+  color: #fff !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.hw-title .hw-in { color: #fff !important; }
+.hw-kv > span {
+  background: #e8eef6 !important;
+  color: #1e3a5f;
+}
+.hw-bar,
+.hw-unit {
+  background: #fde68a !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.hw-table thead th {
+  background: #1e3a5f !important;
+  color: #fff !important;
+  font-style: italic;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.hw-table tbody tr:nth-child(even) td { background: #fffbeb; }
+
+@media print {
+  .wo-title, .wo-cols th, .cl-title, .cl-table thead th,
+  .bm-title, .bm-table thead th, .bm-sign th,
+  .hw-title, .hw-bar, .hw-unit, .hw-table thead th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

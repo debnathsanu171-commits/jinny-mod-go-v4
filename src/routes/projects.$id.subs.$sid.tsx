@@ -3,15 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Guard } from "@/components/guard";
-import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { getSubProject, setSubProjectStatus } from "@/lib/server";
-import { HARDWARE_RE, jobStatusPct, nextJobStatus } from "@/lib/platform";
+import { jobStatusPct, nextJobStatus } from "@/lib/platform";
 import { ProcessBox } from "@/components/process-box";
 import { WorkOrderSheet } from "@/components/work-order-sheet";
 import { CutlistSheet } from "@/components/cutlist-sheet";
 import { MaterialSheet } from "@/components/material-sheet";
+import { HardwareSheet } from "@/components/hardware-sheet";
 import { useCompanyName } from "@/components/print-docs";
 import { cn } from "@/lib/utils";
 
@@ -173,8 +173,6 @@ function SubPanel({
   company: string;
   onSaved: () => void;
 }) {
-  const hardware = parts.filter((r) => HARDWARE_RE.test(r.part_name) || HARDWARE_RE.test(r.material));
-
   if (tab === "workorder") {
     return (
       <WorkOrderSheet
@@ -223,32 +221,25 @@ function SubPanel({
 
   if (tab === "hardware") {
     return (
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
-        <h3 className="border-b border-outline px-4 py-3 text-sm font-semibold">HARDWARE LIST</h3>
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 border-b border-outline bg-surface-low text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Item</th>
-                <th className="px-4 py-3 font-medium">Unit</th>
-                <th className="px-4 py-3 font-medium">Material</th>
-                <th className="px-4 py-3 font-medium">Qty</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hardware.map((r) => (
-                <tr key={r.id} className="border-b border-outline last:border-0">
-                  <td className="px-4 py-2.5">{r.part_name}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs">{r.unit}</td>
-                  <td className="px-4 py-2.5">{r.material}</td>
-                  <td className="px-4 py-2.5 font-mono">{r.qty}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {hardware.length === 0 ? <p className="px-4 py-8 text-center text-sm text-muted">No hardware on this sub project.</p> : null}
-        </div>
-      </Card>
+      <HardwareSheet
+        projectId={sub.project_id}
+        subId={sub.id}
+        company={company}
+        saved={parseSaved(sub.work_order)}
+        onSaved={onSaved}
+        parts={parts}
+        seed={{
+          order_no: project.po_number || project.code,
+          customer_name: project.client_name ?? "",
+          billing_address: project.billing_address ?? "",
+          delivery_address: project.delivery_address ?? project.address ?? "",
+          customer_mob: project.client_phone ?? "",
+          expected_delivery: project.expected_dispatch_date ?? "",
+          project_name: sub.product_name || project.name,
+          sub_proj_no: sub.sub_order_no,
+          notes: sub.notes ?? "",
+        }}
+      />
     );
   }
 

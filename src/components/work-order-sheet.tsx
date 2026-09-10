@@ -7,6 +7,7 @@ import { saveWorkOrder } from "@/lib/server";
 import { CabinetConfigModal } from "@/components/cabinet-config-modal";
 import { syncCutlistFromUnits, type CutlistDoc } from "@/lib/cutlist-bom";
 import type { MaterialDoc } from "@/lib/material-bom";
+import type { HardwareDoc } from "@/lib/hardware-bom";
 
 export const WO_DEPTS = [
   "PLANT SUPERVISOR",
@@ -60,6 +61,7 @@ export type WorkOrderDoc = {
   depts: WoDept[];
   cutlist?: CutlistDoc;
   material?: MaterialDoc;
+  hardware?: HardwareDoc;
 };
 
 export type WorkOrderSeed = {

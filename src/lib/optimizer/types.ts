@@ -16,6 +16,14 @@ export interface CutPartInput {
   color?: string;
   unit?: string;
   notes?: string;
+  thickness?: number;
+  srNo?: string;
+  edge1?: string;
+  edge2?: string;
+  edge3?: string;
+  edge4?: string;
+  projectName?: string;
+  clientName?: string;
 }
 
 export interface StockSheetInput {

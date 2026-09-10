@@ -188,7 +188,7 @@ export function MaterialSheet({
               </thead>
               <tbody>
                 {doc.rows.map((r) => (
-                  <tr key={r.id} className={r.kind === "group" ? "bm-group" : undefined}>
+                  <tr key={r.id} className={r.kind === "group" ? `bm-group bm-g-${(r.sl || "x").slice(0, 1).toLowerCase()}` : "bm-item"}>
                     <td>
                       <In
                         value={r.sl}
